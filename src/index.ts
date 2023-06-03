@@ -5,15 +5,15 @@ interface BaseExtSpec<TSource, TTarget> {
 }
 
 interface OneOfExtSpec<TSource, TTarget> extends BaseExtSpec<TSource, TTarget> {
-    type: "OneOfExtSpec",
+    type: "toOneOf",
 }
 
 interface OneOrNoneOfExtSpec<TSource, TTarget> extends BaseExtSpec<TSource, TTarget> {
-    type: "OneOrNoneOfExtSpec",
+    type: "toOneOrNoneOf",
 }
 
 interface ManyOfExtSpec<TSource, TTarget> extends BaseExtSpec<TSource, TTarget> {
-    type: "ManyOfExtSpec",
+    type: "toManyOf",
 }
 
 type ExtSpec<TSource, TTarget> =
@@ -34,49 +34,58 @@ type ExtSource<TSource, TOutSpec extends OutSpec<TSource>> =
         : never
     }
 
-class ExtContext<TSource> {
-    oneOf<TTarget>(target: TTarget[], targetKey: keyof TTarget, sourceKey: keyof TSource): OneOfExtSpec<TSource, TTarget> {
-        return {
-            type: "OneOfExtSpec",
-            target,
-            targetKey,
-            sourceKey
+type LinkProxy<TSource extends {}> = {
+    [K1 in keyof TSource]-?: {
+        toOneOf<TTarget extends {}>(target: TTarget[]): {
+            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget>
+        }
+        toOneOrNoneOf<TTarget extends {}>(target: TTarget[]): {
+            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget>
+        }
+        toManyOf<TTarget extends {}>(target: TTarget[]): {
+            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget>
         }
     }
-    oneOrNoneOf<TTarget>(target: TTarget[], targetKey: keyof TTarget, sourceKey: keyof TSource): OneOrNoneOfExtSpec<TSource, TTarget> {
-        return {
-            type: "OneOrNoneOfExtSpec",
-            target,
-            targetKey,
-            sourceKey
-        }
-    }
-    manyOf<TTarget>(target: TTarget[], targetKey: keyof TTarget, sourceKey: keyof TSource): ManyOfExtSpec<TSource, TTarget> {
-        return {
-            type: "ManyOfExtSpec",
-            target,
-            targetKey,
-            sourceKey
-        }
-    }
-};
+}
 
-export const extend = <TSource, TOutSpec extends OutSpec<TSource>>(
+const getLinkProxy= <TSource extends {}> () => {
+    return new Proxy({}, {
+        get(_, sourceKey) {
+            return new Proxy({}, {
+                get(_, type) {
+                    return (target: any) => new Proxy({}, {
+                        get(_, targetKey) {
+                            return {
+                                target,
+                                type,
+                                sourceKey,
+                                targetKey
+                            }
+                        }
+                    })
+                }
+            })
+        }
+    }) as LinkProxy<TSource>
+}
+
+
+export const extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     collection: TSource[],
-    receiver: (ctx: ExtContext<TSource>) => TOutSpec
+    receiver: (ctx: LinkProxy<TSource>) => TOutSpec
 ): ExtSource<TSource, TOutSpec>[] => _extend(collection, receiver, true)
 
-export const extendUnwrapped = <TSource, TOutSpec extends OutSpec<TSource>>(
+export const extendUnwrapped = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     collection: TSource[],
-    receiver: (ctx: ExtContext<TSource>) => TOutSpec
+    receiver: (ctx: LinkProxy<TSource>) => TOutSpec
 ): ExtSource<TSource, TOutSpec>[] => _extend(collection, receiver, false)
 
-const _extend = <TSource, TOutSpec extends OutSpec<TSource>>(
+const _extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     collection: TSource[],
-    receiver: (ctx: ExtContext<TSource>) => TOutSpec,
+    receiver: (ctx: LinkProxy<TSource>) => TOutSpec,
     wrapRefs: boolean,
 ) => {
-    const outSpec = receiver(new ExtContext<TSource>());
+    const outSpec = receiver(getLinkProxy<TSource>());
     const mapping: {
         [K in keyof TOutSpec]?: Map<any, any[]>
     } = {}
@@ -96,11 +105,11 @@ const _extend = <TSource, TOutSpec extends OutSpec<TSource>>(
         for (const key of keys) {
             const extSpec = outSpec[key]
             const targets = mapping[key]?.get(item[extSpec.sourceKey]) ?? []
-            if (extSpec.type === "OneOrNoneOfExtSpec" || extSpec.type === "OneOfExtSpec") {
+            if (extSpec.type === "toOneOrNoneOf" || extSpec.type === "toOneOf") {
                 if (targets.length > 1) {
                     throw new Error(`Expected atmost one target for association ${String(key)} but found ${targets.length}`)
                 }
-                if (extSpec.type === "OneOfExtSpec" && targets.length === 0) {
+                if (extSpec.type === "toOneOf" && targets.length === 0) {
                     throw new Error(`Expected atleast one target for association ${String(key)} but found ${targets.length}`)
                 }
                 if (wrapRefs)

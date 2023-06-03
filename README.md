@@ -1,8 +1,8 @@
 # collection-joiner
 
-This is a simple type-safe utility to combine multiple collections using an intuitive association specification.
+A simple type-safe utility to combine multiple collections using an intuitive proxy-based association API.
 
-This API is reminiscent of association APIs found in ORMs, however collection-joiner is completely agnostic about how these collections are obtained, so you could for example, fetch a list of users from a database, a list of departments from another service, a list of roles from a key value store and merge them into a single hierarchy when constructing a response.
+You may find this API to be reminiscent of association APIs found in ORMs. However, collection-joiner is completely agnostic about how these collections are obtained - so you could for example, fetch a list of users from a database, a list of departments from another service, a list of roles from a key value store and merge them into a single hierarchy when constructing a response.
 
 ## Usage
 
@@ -50,11 +50,14 @@ const ranks = [{
 To derive a collection, where each user has been associated with their rank (1:1 relation), elder sibling (1:0/1 relation) and goldsigns (1:N relation), we can do:
 
 ```ts
-extend(users, ext => ({
-    rank: ext.oneOf(ranks, "userId", "id"),
-    elderSibling: ext.oneOrNoneOf(users, "elderSiblingId", "id"),
-    goldSigns: ext.manyOf(goldSigns, "userId", "id")
-}))
+  extend(users, self => ({
+      // Populate rank by associating id of user to userId of ranks
+      rank: self.id.toOneOf(ranks).userId,
+      // Populate elderSibling by associating elderSiblingId of user to userId of ranks
+      elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
+      // Populate goldSigns by associating id of user to userId of goldSigns
+      goldSigns: self.id.toManyOf(goldSigns).userId
+  }))
 ```
 
 This will return following structure:
@@ -62,10 +65,28 @@ This will return following structure:
 ```ts
     [
       {
-        elderSibling: {
-          value: undefined,
+        // user:
+        id: 1,
+        name: 'Wei Shi Lindon',
+        rank: {
+          value: {
+            rank: 'Arch Lord',
+            userId: 1,
+          },
         },
         elderSiblingId: 3,
+
+        // Associated collections:
+
+        // 1:1 Association:
+        elderSibling: {
+          value: {
+            id: 3,
+            name: 'Wei Shi Kelsa',
+          },
+        },
+
+        // 1:N Association:
         goldSigns: {
           values: [
             {
@@ -80,16 +101,16 @@ This will return following structure:
             },
           ],
         },
-        id: 1,
-        name: 'Wei Shi Lindon',
-        rank: {
-          value: {
-            rank: 'Arch Lord',
-            userId: 1,
-          },
-        },
       },
       {
+        id: 2,
+        name: 'Yerin',
+        rank: {
+          value: {
+            rank: 'Herald',
+            userId: 2,
+          },
+        },
         elderSibling: {
           value: undefined,
         },
@@ -102,26 +123,8 @@ This will return following structure:
             },
           ],
         },
-        id: 2,
-        name: 'Yerin',
-        rank: {
-          value: {
-            rank: 'Herald',
-            userId: 2,
-          },
-        },
       },
       {
-        elderSibling: {
-          value: {
-            elderSiblingId: 3,
-            id: 1,
-            name: 'Wei Shi Lindon',
-          },
-        },
-        goldSigns: {
-          values: [],
-        },
         id: 3,
         name: 'Wei Shi Kelsa',
         rank: {
@@ -129,6 +132,12 @@ This will return following structure:
             rank: 'Low Gold',
             userId: 3,
           },
+        },
+        elderSibling: {
+          value: undefined,
+        },
+        goldSigns: {
+          values: [],
         },
       },
     ]
@@ -139,19 +148,22 @@ By default associated references are wrapped in `{ value: associatedOne }` and `
 You can avoid this wrapper by using `extendUnwrapped` function:
 
 ```ts
-extendUnwrapped(users, ext => ({
-    rank: ext.oneOf(ranks, "userId", "id"),
-    elderSibling: ext.oneOrNoneOf(users, "elderSiblingId", "id"),
-    goldSigns: ext.manyOf(goldSigns, "userId", "id")
+extendUnwrapped(users, self => ({
+      rank: self.id.toOneOf(ranks).userId,
+      elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
+      goldSigns: self.id.toManyOf(goldSigns).userId
 }))
 ```
 
 Which returns:
 
 ```ts
-    [
+   [
       {
-        elderSibling: undefined,
+        elderSibling: {
+          id: 3,
+          name: 'Wei Shi Kelsa',
+        },
         elderSiblingId: 3,
         goldSigns: [
           {
@@ -189,11 +201,7 @@ Which returns:
         },
       },
       {
-        elderSibling: {
-          elderSiblingId: 3,
-          id: 1,
-          name: 'Wei Shi Lindon',
-        },
+        elderSibling: undefined,
         goldSigns: [],
         id: 3,
         name: 'Wei Shi Kelsa',

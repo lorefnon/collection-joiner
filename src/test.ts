@@ -39,12 +39,12 @@ const ranks = [{
 }];
 
 test("extend with oneOf", t => {
-    const extUsers = extend(users, ext => ({
-        rank: ext.oneOf(ranks, "userId", "id")
+    const extUsers = extend(users, self => ({
+        rank: self.id.toOneOf(ranks).userId
     }))
     t.snapshot(extUsers)
-    const extUsersUnwrapped = extendUnwrapped(users, ext => ({
-        rank: ext.oneOf(ranks, "userId", "id")
+    const extUsersUnwrapped = extendUnwrapped(users, self => ({
+        rank: self.id.toOneOf(ranks).userId
     }))
     t.snapshot(extUsersUnwrapped)
 })
@@ -54,38 +54,38 @@ test("extend with oneOrNoneOf", t => {
         userId: 1,
         rank: "Arch Lord"
     }];
-    const extUsers = extend(users, ext => ({
-        rank: ext.oneOrNoneOf(ranks, "userId", "id")
+    const extUsers = extend(users, self => ({
+        rank: self.id.toOneOrNoneOf(ranks).userId
     }))
     t.snapshot(extUsers)
-    const extUsersUnwrapped = extendUnwrapped(users, ext => ({
-        rank: ext.oneOrNoneOf(ranks, "userId", "id")
+    const extUsersUnwrapped = extendUnwrapped(users, self => ({
+        rank: self.id.toOneOrNoneOf(ranks).userId
     }))
     t.snapshot(extUsersUnwrapped)
 })
 
 test("extend with manyOf", t => {
-    const extUsers = extend(users, ext => ({
-        goldSigns: ext.manyOf(goldSigns, "userId", "id")
+    const extUsers = extend(users, self => ({
+        goldSigns: self.id.toManyOf(goldSigns).userId
     }))
     t.snapshot(extUsers)
-    const extUsersUnwrapped = extendUnwrapped(users, ext => ({
-        goldSigns: ext.manyOf(goldSigns, "userId", "id")
+    const extUsersUnwrapped = extendUnwrapped(users, self => ({
+        goldSigns: self.id.toManyOf(goldSigns).userId
     }))
     t.snapshot(extUsersUnwrapped)
 })
 
 test("extend with multiple", t => {
-    const extUsers = extend(users, ext => ({
-        rank: ext.oneOf(ranks, "userId", "id"),
-        elderSibling: ext.oneOrNoneOf(users, "elderSiblingId", "id"),
-        goldSigns: ext.manyOf(goldSigns, "userId", "id")
+    const extUsers = extend(users, self => ({
+        rank: self.id.toOneOf(ranks).userId,
+        elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
+        goldSigns: self.id.toManyOf(goldSigns).userId
     }))
     t.snapshot(extUsers)
-    const extUsersUnwrapped = extendUnwrapped(users, ext => ({
-        rank: ext.oneOf(ranks, "userId", "id"),
-        elderSibling: ext.oneOrNoneOf(users, "id", "elderSiblingId"),
-        goldSigns: ext.manyOf(goldSigns, "userId", "id")
+    const extUsersUnwrapped = extendUnwrapped(users, self => ({
+        rank: self.id.toOneOf(ranks).userId,
+        elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
+        goldSigns: self.id.toManyOf(goldSigns).userId
     }))
     t.snapshot(extUsersUnwrapped)
 })
