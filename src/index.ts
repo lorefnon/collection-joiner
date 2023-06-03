@@ -26,12 +26,12 @@ type OutSpec<TSource> = Record<string, ExtSpec<TSource, any>>
 type ExtSource<TSource, TOutSpec extends OutSpec<TSource>> =
     TSource & {
         [K in keyof TOutSpec]: TOutSpec[K] extends OneOfExtSpec<TSource, infer TTarget>
-            ? { value: TTarget }
-            : TOutSpec[K] extends OneOrNoneOfExtSpec<TSource, infer TTarget>
-            ? { value?: TTarget | null }
-            : TOutSpec[K] extends ManyOfExtSpec<TSource, infer TTarget>
-            ? { values: TTarget[] }
-            : never
+        ? { value: TTarget }
+        : TOutSpec[K] extends OneOrNoneOfExtSpec<TSource, infer TTarget>
+        ? { value?: TTarget | null }
+        : TOutSpec[K] extends ManyOfExtSpec<TSource, infer TTarget>
+        ? { values: TTarget[] }
+        : never
     }
 
 class ExtContext<TSource> {
@@ -61,27 +61,38 @@ class ExtContext<TSource> {
     }
 };
 
-export const extend = <TSource, TOutSpec extends OutSpec<TSource>> (
-    collection: TSource[], 
+export const extend = <TSource, TOutSpec extends OutSpec<TSource>>(
+    collection: TSource[],
     receiver: (ctx: ExtContext<TSource>) => TOutSpec
-): ExtSource<TSource, TOutSpec>[] => {
+): ExtSource<TSource, TOutSpec>[] => _extend(collection, receiver, true)
+
+export const extendUnwrapped = <TSource, TOutSpec extends OutSpec<TSource>>(
+    collection: TSource[],
+    receiver: (ctx: ExtContext<TSource>) => TOutSpec
+): ExtSource<TSource, TOutSpec>[] => _extend(collection, receiver, false)
+
+const _extend = <TSource, TOutSpec extends OutSpec<TSource>>(
+    collection: TSource[],
+    receiver: (ctx: ExtContext<TSource>) => TOutSpec,
+    wrapRefs: boolean,
+) => {
     const outSpec = receiver(new ExtContext<TSource>());
-    const mapping: { 
-        [K in keyof TOutSpec]?: Map<any, any[]> 
+    const mapping: {
+        [K in keyof TOutSpec]?: Map<any, any[]>
     } = {}
     const keys = Object.keys(outSpec) as (keyof TOutSpec)[]
     for (const key of keys) {
         const extSpec = outSpec[key]
         const valueMapping = mapping[key] ??= new Map();
         for (const targetItem of extSpec.target) {
-            const value = (targetItem as any)[extSpec.targetKey] 
+            const value = (targetItem as any)[extSpec.targetKey]
             const targetList = valueMapping.get(value) ?? []
             targetList.push(targetItem)
             valueMapping.set(value, targetList)
         }
     }
     return collection.map((item: any) => {
-        const resultItem = {...item};
+        const resultItem = { ...item };
         for (const key of keys) {
             const extSpec = outSpec[key]
             const targets = mapping[key]?.get(item[extSpec.sourceKey]) ?? []
@@ -92,9 +103,15 @@ export const extend = <TSource, TOutSpec extends OutSpec<TSource>> (
                 if (extSpec.type === "OneOfExtSpec" && targets.length === 0) {
                     throw new Error(`Expected atleast one target for association ${String(key)} but found ${targets.length}`)
                 }
-                resultItem[key] = { value: targets[0] }
+                if (wrapRefs)
+                    resultItem[key] = { value: targets[0] }
+                else
+                    resultItem[key] = targets[0]
             } else {
-                resultItem[key] = { values: targets }
+                if (wrapRefs)
+                    resultItem[key] = { values: targets }
+                else
+                    resultItem[key] = targets
             }
         }
         return resultItem;
