@@ -1,0 +1,28 @@
+{
+  "name": "@lorefnon/collection-associator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "test": "ava"
+  },
+  "ava": {
+    "typescript": {
+      "rewritePaths": {
+        "src/": "build/"
+      },
+      "compile": "tsc"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@ava/typescript": "^4.0.0",
+    "ava": "^5.3.0",
+    "tsup": "^6.7.0",
+    "typescript": "^5.0.4"
+  }
+}
