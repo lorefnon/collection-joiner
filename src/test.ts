@@ -4,13 +4,21 @@ import { extend, extendUnwrapped } from "./index.js"
 const users = [{
     id: 1,
     name: "Wei Shi Lindon",
-    elderSiblingId: 3
+    elderSiblingId: 3,
+    loveInterestIds: [2],
+    parentIds: [4, 5],
 }, {
     id: 2,
     name: "Yerin"
 }, {
     id: 3,
     name: "Wei Shi Kelsa"
+}, {
+    id: 4,
+    name: "Wei Shi Jaren"
+}, {
+    id: 5,
+    name: "Wei Shi Seisha"
 }];
 
 const goldSigns = [{
@@ -36,6 +44,12 @@ const ranks = [{
 }, {
     userId: 3,
     rank: "Low Gold"
+}, {
+    userId: 4,
+    rank: "Jade"
+}, {
+    userId: 5,
+    rank: "Jade"
 }];
 
 test("extend with oneOf", t => {
@@ -75,17 +89,36 @@ test("extend with manyOf", t => {
     t.snapshot(extUsersUnwrapped)
 })
 
+test("extend with manyOf with array", t => {
+    const extUsers = extend(users, self => ({
+        loveInterests: self.loveInterestIds.toManyOf(users).id,
+        prospectiveLoveInterests: self.id.toManyOf(users).loveInterestIds,
+        parents: self.parentIds.toManyOf(users).id,
+    }))
+    t.snapshot(extUsers)
+    const extUsersUnwrapped = extendUnwrapped(users, self => ({
+        loveInterests: self.loveInterestIds.toManyOf(users).id,
+        prospectiveLoveInterests: self.id.toManyOf(users).loveInterestIds,
+        parents: self.parentIds.toManyOf(users).id,
+    }))
+    t.snapshot(extUsersUnwrapped)
+})
+
 test("extend with multiple", t => {
     const extUsers = extend(users, self => ({
         rank: self.id.toOneOf(ranks).userId,
         elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
-        goldSigns: self.id.toManyOf(goldSigns).userId
+        goldSigns: self.id.toManyOf(goldSigns).userId,
+        loveInterests: self.loveInterestIds.toManyOf(users).id,
+        parents: self.parentIds.toManyOf(users).id,
     }))
     t.snapshot(extUsers)
     const extUsersUnwrapped = extendUnwrapped(users, self => ({
         rank: self.id.toOneOf(ranks).userId,
         elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
-        goldSigns: self.id.toManyOf(goldSigns).userId
+        goldSigns: self.id.toManyOf(goldSigns).userId,
+        loveInterests: self.loveInterestIds.toManyOf(users).id,
+        parents: self.parentIds.toManyOf(users).id,
     }))
     t.snapshot(extUsersUnwrapped)
 })

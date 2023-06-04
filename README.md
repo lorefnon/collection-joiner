@@ -50,14 +50,16 @@ const ranks = [{
 To derive a collection, where each user has been associated with their rank (1:1 relation), elder sibling (1:0/1 relation) and goldsigns (1:N relation), we can do:
 
 ```ts
-  extend(users, self => ({
-      // Populate rank by associating id of user to userId of ranks
-      rank: self.id.toOneOf(ranks).userId,
-      // Populate elderSibling by associating elderSiblingId of user to userId of ranks
-      elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
-      // Populate goldSigns by associating id of user to userId of goldSigns
-      goldSigns: self.id.toManyOf(goldSigns).userId
-  }))
+import { extend } from "@lorefnon/collection-joiner";
+
+extend(users, self => ({
+    // Populate rank by associating id of user to userId of ranks
+    rank: self.id.toOneOf(ranks).userId,
+    // Populate elderSibling by associating elderSiblingId of user to userId of ranks
+    elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
+    // Populate goldSigns by associating id of user to userId of goldSigns
+    goldSigns: self.id.toManyOf(goldSigns).userId
+}))
 ```
 
 This will return following structure:
@@ -148,6 +150,8 @@ By default associated references are wrapped in `{ value: associatedOne }` and `
 You can avoid this wrapper by using `extendUnwrapped` function:
 
 ```ts
+import { extendUnwrapped } from "@lorefnon/collection-joiner";
+
 extendUnwrapped(users, self => ({
       rank: self.id.toOneOf(ranks).userId,
       elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
