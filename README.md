@@ -217,3 +217,10 @@ Which returns:
     ]
 ```
 
+# License
+
+MIT
+
+# History
+
+This project was developed as part of `TS Workshop: Power of Mapped Types` organized by OptimalWeb group in Hyderabad, Telangana.
