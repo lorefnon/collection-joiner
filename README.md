@@ -52,13 +52,13 @@ To derive a collection, where each user has been associated with their rank (1:1
 ```ts
 import { extend } from "@lorefnon/collection-joiner";
 
-extend(users, self => ({
+extend(users, own => ({
     // Populate rank by associating id of user to userId of ranks
-    rank: self.id.toOneOf(ranks).userId,
+    rank: own.id.toOneOf(ranks).userId,
     // Populate elderSibling by associating elderSiblingId of user to userId of ranks
-    elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
+    elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
     // Populate goldSigns by associating id of user to userId of goldSigns
-    goldSigns: self.id.toManyOf(goldSigns).userId
+    goldSigns: own.id.toManyOf(goldSigns).userId
 }))
 ```
 
@@ -152,10 +152,10 @@ You can avoid this wrapper by using `extendUnwrapped` function:
 ```ts
 import { extendUnwrapped } from "@lorefnon/collection-joiner";
 
-extendUnwrapped(users, self => ({
-      rank: self.id.toOneOf(ranks).userId,
-      elderSibling: self.elderSiblingId.toOneOrNoneOf(users).id,
-      goldSigns: self.id.toManyOf(goldSigns).userId
+extendUnwrapped(users, own => ({
+      rank: own.id.toOneOf(ranks).userId,
+      elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
+      goldSigns: own.id.toManyOf(goldSigns).userId
 }))
 ```
 
@@ -215,6 +215,25 @@ Which returns:
         },
       },
     ]
+```
+
+### Extend mutating original collection:
+
+By default, extend will leave the collection provided as input as is, and return a new collection. However, you can pass `mutate: true` option to update the collection in place. This may be useful if you are dealing with reactive collections (eg. vue) or building object graphs through multiple invocations of `extend`
+
+```
+const extendedUsers = extend(users, own => ({
+    // Populate rank by associating id of user to userId of ranks
+    rank: own.id.toOneOf(ranks).userId,
+    // Populate elderSibling by associating elderSiblingId of user to userId of ranks
+    elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
+    // Populate goldSigns by associating id of user to userId of goldSigns
+    goldSigns: own.id.toManyOf(goldSigns).userId
+}), {
+    mutate: true
+})
+
+extendedUsers === users // true
 ```
 
 # License

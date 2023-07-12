@@ -15,28 +15,36 @@ export type ExtResult<TSource, TOutSpec extends OutSpec<TSource>> =
         : never
     }
 
+export interface ExtendOpts {
+    mutate?: boolean
+}
+
 export const extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     collection: TSource[],
-    receiver: (ctx: LinkProxy<TSource>) => TOutSpec
+    receiver: (ctx: LinkProxy<TSource>) => TOutSpec,
+    opts?: ExtendOpts
 ): ExtResult<TSource, TOutSpec>[] =>
-    _extend(collection, receiver, true)
+    _extend(collection, receiver, true, opts)
 
 export const extendUnwrapped = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     collection: TSource[],
-    receiver: (ctx: LinkProxy<TSource>) => TOutSpec
+    receiver: (ctx: LinkProxy<TSource>) => TOutSpec,
+    opts?: ExtendOpts
 ): ExtResult<TSource, TOutSpec>[] =>
-    _extend(collection, receiver, false)
+    _extend(collection, receiver, false, opts)
 
 const _extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     collection: TSource[],
     receiver: (ctx: LinkProxy<TSource>) => TOutSpec,
     wrapRefs: boolean,
+    opts?: ExtendOpts
 ) => {
     const outSpec = receiver(getLinkProxy<TSource>());
     const mapping = buildIndex<TSource, TOutSpec>(outSpec)
+    const mutate = opts?.mutate ?? false
 
-    return collection.map((item: any) => {
-        const resultItem = { ...item };
+    const mapped: any = collection[mutate ? 'forEach' : 'map']((item: any) => {
+        const resultItem = opts?.mutate ? item : { ...item };
         for (const key in mapping) {
             const extSpec = outSpec[key]
             const sourceKeyVal = item[extSpec.sourceKey]
@@ -70,6 +78,8 @@ const _extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
         }
         return resultItem;
     })
+
+    return opts?.mutate ? collection : mapped
 }
 
 const buildIndex = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(outSpec: TOutSpec) => {
