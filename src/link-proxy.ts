@@ -1,15 +1,25 @@
 import { ManyOfExtSpec, OneOfExtSpec, OneOrNoneOfExtSpec } from "./ext-spec.js"
+import { MaybeN } from "./utils.js"
 
 export type LinkProxy<TSource extends {}> = {
     [K1 in keyof TSource]-?: {
         toOneOf<TTarget extends {}>(target: TTarget[]): {
-            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget>
+            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget, false>
+        }
+        toOneOf<TTarget extends {}>(target: MaybeN<TTarget[]>): {
+            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget, true>
         }
         toOneOrNoneOf<TTarget extends {}>(target: TTarget[]): {
-            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget>
+            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget, false>
+        }
+        toOneOrNoneOf<TTarget extends {}>(target: MaybeN<TTarget[]>): {
+            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget, true>
         }
         toManyOf<TTarget extends {}>(target: TTarget[]): {
-            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget>
+            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget, false>
+        }
+        toManyOf<TTarget extends {}>(target: MaybeN<TTarget[]>): {
+            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget, true>
         }
     }
 }

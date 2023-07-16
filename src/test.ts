@@ -1,9 +1,17 @@
 import isEqual from 'lodash/isEqual.js';
 import test from "ava";
-import { extend, extendUnwrapped } from "./index.js"
+import { MaybeN, extend, extendUnwrapped, fetchAll } from "./index.js"
+
+interface User {
+    id: number;
+    name: string;
+    elderSiblingId?: number;
+    loveInterestIds?: number[],
+    parentIds?: number[]
+}
 
 const getData = () => {
-    const users = [{
+    const users: User[] = [{
         id: 1,
         name: "Wei Shi Lindon",
         elderSiblingId: 3,
@@ -152,6 +160,41 @@ const getData = () => {
         t.assert(isEqual(extUsersArr[0], extUsersArr[1]))
         const [extUsers] = extUsersArr
         t.snapshot(extUsersArr)
+        t.assert(extUsers[0].goldSigns.values[0].userId === extUsers[0].id)
+        t.assert((extUsers === users) === !!mutate)
+        t.assert((extUsers[0] === users[0]) === !!mutate)
+
+        const extUsersUnwrappedArr = [opts, undefined].map(opts => extendUnwrapped(users, own => ({
+            rank: own.id.toOneOf(ranks).userId,
+            elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
+            goldSigns: own.id.toManyOf(goldSigns).userId,
+            loveInterests: own.loveInterestIds.toManyOf(users).id,
+            parents: own.parentIds.toManyOf(users).id,
+        }), opts))
+        t.assert(isEqual(extUsersUnwrappedArr[0], extUsersUnwrappedArr[1]))
+        const [extUsersUnwrapped] = extUsersUnwrappedArr
+        t.snapshot(extUsersUnwrapped)
+        t.assert((extUsersUnwrapped === users) === !!mutate)
+        t.assert((extUsersUnwrapped[0] === users[0]) === !!mutate)
+    })
+
+    test(`extend with multiple nullable${withMutationDesc}`, t => {
+        const data = getData()
+        const users: undefined | typeof data.users = data.users
+        const ranks: null | typeof data.ranks = data.ranks
+        const goldSigns: MaybeN<typeof data.goldSigns> = data.goldSigns
+
+        const extUsersArr = [opts, undefined].map(opts => extend(users, own => ({
+            rank: own.id.toOneOf(ranks).userId,
+            elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
+            goldSigns: own.id.toManyOf(goldSigns).userId,
+            loveInterests: own.loveInterestIds.toManyOf(users).id,
+            parents: own.parentIds.toManyOf(users).id,
+        }), opts))
+        t.assert(isEqual(extUsersArr[0], extUsersArr[1]))
+        const [extUsers] = extUsersArr
+        t.assert(extUsers[0].goldSigns?.values[0].userId === extUsers[0].id)
+        t.snapshot(extUsersArr)
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
@@ -170,3 +213,20 @@ const getData = () => {
     })
 })
 
+test('fetchAll', async (t) => {
+    const res = await fetchAll({
+        users: {
+            fetch: async () => [{ name: 'lorefnon' }],
+            if: () => true
+        },
+        departments: {
+            fetch: async () => [{ name: "magic" }, { name: "necromancy" }],
+            if: async () => true
+        },
+        events: {
+            fetch: async () => [{ date: new Date() }],
+            if: () => false
+        }
+    });
+    t.snapshot(res)
+})
