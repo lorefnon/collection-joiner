@@ -1,6 +1,8 @@
+import { MaybeN, MaybeP } from "./utils.js"
+
 export interface FetchSpec<T> {
     fetch: () => Promise<T[]>
-    if: () => boolean | Promise<boolean>
+    if: () => MaybeP<MaybeN<boolean>>
 }
 
 export interface MultiFetchSpecBase {
