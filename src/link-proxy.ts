@@ -4,22 +4,22 @@ import { MaybeN } from "./utils.js"
 export type LinkProxy<TSource extends {}> = {
     [K1 in keyof TSource]-?: {
         toOneOf<TTarget extends {}>(target: TTarget[]): {
-            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget, false>
+            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget, false, TTarget>
         }
         toOneOf<TTarget extends {}>(target: MaybeN<TTarget[]>): {
-            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget, true>
+            [K2 in keyof TTarget]-?: OneOfExtSpec<TSource, TTarget, true, TTarget>
         }
         toOneOrNoneOf<TTarget extends {}>(target: TTarget[]): {
-            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget, false>
+            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget, false, MaybeN<TTarget>>
         }
         toOneOrNoneOf<TTarget extends {}>(target: MaybeN<TTarget[]>): {
-            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget, true>
+            [K2 in keyof TTarget]-?: OneOrNoneOfExtSpec<TSource, TTarget, true, MaybeN<TTarget>>
         }
         toManyOf<TTarget extends {}>(target: TTarget[]): {
-            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget, false>
+            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget, false, TTarget[]>
         }
         toManyOf<TTarget extends {}>(target: MaybeN<TTarget[]>): {
-            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget, true>
+            [K2 in keyof TTarget]-?: ManyOfExtSpec<TSource, TTarget, true, TTarget[]>
         }
     }
 }
@@ -35,7 +35,15 @@ export const getLinkProxy = <TSource extends {}>() => {
                                 target,
                                 type,
                                 sourceKey,
-                                targetKey
+                                targetKey,
+                                toRes: (it: any) => it,
+                                thru(transform: any): any {
+                                    const prevToRes = this.toRes
+                                    return {
+                                        ...this,
+                                        toRes: (it: any) => transform(prevToRes(it))
+                                    }
+                                }
                             }
                         }
                     })

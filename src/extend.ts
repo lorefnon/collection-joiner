@@ -1,4 +1,4 @@
-import { OutSpec, OneOfExtSpec, OneOrNoneOfExtSpec, ManyOfExtSpec } from "./ext-spec.js"
+import { OutSpec, OneOfExtSpec, OneOrNoneOfExtSpec, ManyOfExtSpec, NCond } from "./ext-spec.js"
 import { LinkProxy, getLinkProxy } from "./link-proxy.js"
 import { Nil, MaybeN } from "./utils.js";
 
@@ -7,17 +7,13 @@ export type * from "./link-proxy.js";
 
 export type ExtResult<TSource, TOutSpec extends OutSpec<TSource>> =
     Omit<TSource, keyof TOutSpec> & {
-        [K in keyof TOutSpec]: TOutSpec[K] extends OneOfExtSpec<TSource, infer TTarget, infer Nilable>
-            ? true extends Nilable
-                ? MaybeN<{ value: TTarget }>
-                : { value: TTarget }
-            : TOutSpec[K] extends OneOrNoneOfExtSpec<TSource, infer TTarget, infer Nilable>
-                ? { value?: MaybeN<TTarget> }
-                : TOutSpec[K] extends ManyOfExtSpec<TSource, infer TTarget, infer Nilable>
-                    ? true extends Nilable
-                        ? MaybeN<{ values: TTarget[] }>
-                        : { values: TTarget[] }
-                    : never
+        [K in keyof TOutSpec]: TOutSpec[K] extends OneOfExtSpec<TSource, infer _TTarget, infer Nilable, infer TRes>
+        ? NCond<{ value: TRes }, Nilable>
+        : TOutSpec[K] extends OneOrNoneOfExtSpec<TSource, infer _TTarget, infer Nilable, infer TRes>
+        ? NCond<{ value?: MaybeN<TRes> }, Nilable>
+        : TOutSpec[K] extends ManyOfExtSpec<TSource, infer _TTarget, infer Nilable, infer TRes>
+        ? NCond<{ values: TRes }, Nilable>
+        : never
     }
 
 export interface ExtendOpts {
@@ -71,14 +67,14 @@ const _extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
                     throw new Error(`Expected atleast one target for association ${String(key)} but found ${targets.length}`)
                 }
                 if (wrapRefs)
-                    resultItem[key] = { value: targets[0] }
+                    resultItem[key] = { value: extSpec.toRes(targets[0]) }
                 else
-                    resultItem[key] = targets[0]
+                    resultItem[key] = extSpec.toRes(targets[0])
             } else {
                 if (wrapRefs)
-                    resultItem[key] = { values: targets }
+                    resultItem[key] = { values: extSpec.toRes(targets) }
                 else
-                    resultItem[key] = targets
+                    resultItem[key] = extSpec.toRes(targets)
             }
         }
         return resultItem;
@@ -87,7 +83,10 @@ const _extend = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(
     return opts?.mutate ? collection : mapped
 }
 
-const buildIndex = <TSource extends {}, TOutSpec extends OutSpec<TSource>>(outSpec: TOutSpec) => {
+const buildIndex = <
+    TSource extends {},
+    TOutSpec extends OutSpec<TSource>
+>(outSpec: TOutSpec) => {
     const mapping: {
         [K in keyof TOutSpec]?: Map<any, any[]>
     } = {}
