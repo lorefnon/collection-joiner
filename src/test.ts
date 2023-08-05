@@ -74,15 +74,15 @@ const getData = () => {
 
     test(`extend with oneOf${withMutationDesc}`, t => {
         const { users, ranks } = getData()
-        const extUsers = extend(users, own => ({
-            rank: own.id.toOneOf(ranks).userId
+        const extUsers = extend(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOf(ranks, r => r.userId)
         }), opts)
         t.snapshot(extUsers)
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrapped = extendUnwrapped(users, own => ({
-            rank: own.id.toOneOf(ranks).userId
+        const extUsersUnwrapped = extendUnwrapped(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOf(ranks, r => r.userId)
         }), opts)
         t.snapshot(extUsersUnwrapped)
         t.assert((extUsersUnwrapped === users) === !!mutate)
@@ -95,15 +95,15 @@ const getData = () => {
             userId: 1,
             rank: "Arch Lord"
         }];
-        const extUsers = extend(users, own => ({
-            rank: own.id.toOneOrNoneOf(ranks).userId
+        const extUsers = extend(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOrNoneOf(ranks, r => r.userId)
         }), opts)
         t.snapshot(extUsers)
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrapped = extendUnwrapped(users, own => ({
-            rank: own.id.toOneOrNoneOf(ranks).userId
+        const extUsersUnwrapped = extendUnwrapped(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOrNoneOf(ranks, r => r.userId)
         }), opts)
         t.snapshot(extUsersUnwrapped)
         t.assert((extUsersUnwrapped === users) === !!mutate)
@@ -112,15 +112,15 @@ const getData = () => {
 
     test(`extend with manyOf${withMutationDesc}`, t => {
         const { users, goldSigns } = getData()
-        const extUsers = extend(users, own => ({
-            goldSigns: own.id.toManyOf(goldSigns).userId
+        const extUsers = extend(users, ({ own, link }) => ({
+            goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
         }), opts)
         t.snapshot(extUsers)
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrapped = extendUnwrapped(users, own => ({
-            goldSigns: own.id.toManyOf(goldSigns).userId
+        const extUsersUnwrapped = extendUnwrapped(users, ({ own, link }) => ({
+            goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
         }), opts)
         t.snapshot(extUsersUnwrapped)
         t.assert((extUsersUnwrapped === users) === !!mutate)
@@ -129,19 +129,19 @@ const getData = () => {
 
     test(`extend with manyOf with array${withMutationDesc}`, t => {
         const { users } = getData()
-        const extUsers = extend(users, own => ({
-            loveInterests: own.loveInterestIds.toManyOf(users).id,
-            prospectiveLoveInterests: own.id.toManyOf(users).loveInterestIds,
-            parents: own.parentIds.toManyOf(users).id,
+        const extUsers = extend(users, ({ link, own }) => ({
+            loveInterests: link(own.loveInterestIds).toManyOf(users, u => u.id),
+            prospectiveLoveInterests: link(own.id).toManyOf(users, u => u.loveInterestIds),
+            parents: link(own.parentIds).toManyOf(users, u => u.id),
         }), opts)
         t.snapshot(extUsers)
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrapped = extendUnwrapped(users, own => ({
-            loveInterests: own.loveInterestIds.toManyOf(users).id,
-            prospectiveLoveInterests: own.id.toManyOf(users).loveInterestIds,
-            parents: own.parentIds.toManyOf(users).id,
+        const extUsersUnwrapped = extendUnwrapped(users, ({ link, own }) => ({
+            loveInterests: link(own.loveInterestIds).toManyOf(users, u => u.id),
+            prospectiveLoveInterests: link(own.id).toManyOf(users, u => u.loveInterestIds),
+            parents: link(own.parentIds).toManyOf(users, u => u.id),
         }), opts)
         t.snapshot(extUsersUnwrapped)
         t.assert((extUsersUnwrapped === users) === !!mutate)
@@ -150,12 +150,12 @@ const getData = () => {
 
     test(`extend with multiple${withMutationDesc}`, t => {
         const { users, ranks, goldSigns } = getData()
-        const extUsersArr = [opts, undefined].map(opts => extend(users, own => ({
-            rank: own.id.toOneOf(ranks).userId,
-            elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
-            goldSigns: own.id.toManyOf(goldSigns).userId,
-            loveInterests: own.loveInterestIds.toManyOf(users).id,
-            parents: own.parentIds.toManyOf(users).id,
+        const extUsersArr = [opts, undefined].map(opts => extend(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOf(ranks, it => it.userId),
+            elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id),
+            goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId),
+            loveInterests: link(own.loveInterestIds).toManyOf(users, it => it.id),
+            parents: link(own.parentIds).toManyOf(users, it => it.id),
         }), opts))
         t.assert(isEqual(extUsersArr[0], extUsersArr[1]))
         const [extUsers] = extUsersArr
@@ -164,12 +164,71 @@ const getData = () => {
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrappedArr = [opts, undefined].map(opts => extendUnwrapped(users, own => ({
-            rank: own.id.toOneOf(ranks).userId,
-            elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
-            goldSigns: own.id.toManyOf(goldSigns).userId,
-            loveInterests: own.loveInterestIds.toManyOf(users).id,
-            parents: own.parentIds.toManyOf(users).id,
+        const extUsersUnwrappedArr = [opts, undefined].map(opts => extendUnwrapped(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOf(ranks, it => it.userId),
+            elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id),
+            goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId),
+            loveInterests: link(own.loveInterestIds).toManyOf(users, it => it.id),
+            parents: link(own.parentIds).toManyOf(users, it => it.id),
+        }), opts))
+        t.assert(isEqual(extUsersUnwrappedArr[0], extUsersUnwrappedArr[1]))
+        const [extUsersUnwrapped] = extUsersUnwrappedArr
+        t.snapshot(extUsersUnwrapped)
+        t.assert((extUsersUnwrapped === users) === !!mutate)
+        t.assert((extUsersUnwrapped[0] === users[0]) === !!mutate)
+    })
+
+    test(`extend with transformations${withMutationDesc}`, t => {
+        const { users, ranks, goldSigns } = getData()
+        const extUsersArr = [opts, undefined].map(opts => extend(users, ({ link, own }) => ({
+            rank: link(own.id)
+                .toOneOf(ranks, it => it.userId)
+                .thru(it => it.rank),
+            elderSibling: link(own.elderSiblingId)
+                .toOneOrNoneOf(users, it => it.id)
+                .thru(it => it?.name),
+            goldSigns: link(own.id)
+                .toManyOf(goldSigns, it => it.userId)
+                .thru(linked => linked.map(it => ({
+                    path: it.path,
+                    description: it.description
+                }))),
+            loveInterests: link(own.loveInterestIds)
+                .toManyOf(users, it => it.id)
+                .thru(linked => ({
+                    type: "LoveInterest",
+                    ...linked
+                })),
+            parents: link(own.parentIds)
+                .toManyOf(users, it => it.id),
+        }), opts))
+        t.assert(isEqual(extUsersArr[0], extUsersArr[1]))
+        const [extUsers] = extUsersArr
+        t.snapshot(extUsersArr)
+        t.assert((extUsers === users) === !!mutate)
+        t.assert((extUsers[0] === users[0]) === !!mutate)
+
+        const extUsersUnwrappedArr = [opts, undefined].map(opts => extendUnwrapped(users, ({ link, own }) => ({
+            rank: link(own.id)
+                .toOneOf(ranks, it => it.userId)
+                .thru(it => it.rank),
+            elderSibling: link(own.elderSiblingId)
+                .toOneOrNoneOf(users, it => it.id)
+                .thru(it => it?.name),
+            goldSigns: link(own.id)
+                .toManyOf(goldSigns, it => it.userId)
+                .thru(linked => linked.map(it => ({
+                    path: it.path,
+                    description: it.description
+                }))),
+            loveInterests: link(own.loveInterestIds)
+                .toManyOf(users, it => it.id)
+                .thru(linked => ({
+                    type: "LoveInterest",
+                    ...linked
+                })),
+            parents: link(own.parentIds)
+                .toManyOf(users, it => it.id),
         }), opts))
         t.assert(isEqual(extUsersUnwrappedArr[0], extUsersUnwrappedArr[1]))
         const [extUsersUnwrapped] = extUsersUnwrappedArr
@@ -184,12 +243,12 @@ const getData = () => {
         const ranks: null | typeof data.ranks = data.ranks
         const goldSigns: MaybeN<typeof data.goldSigns> = data.goldSigns
 
-        const extUsersArr = [opts, undefined].map(opts => extend(users, own => ({
-            rank: own.id.toOneOf(ranks).userId,
-            elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
-            goldSigns: own.id.toManyOf(goldSigns).userId,
-            loveInterests: own.loveInterestIds.toManyOf(users).id,
-            parents: own.parentIds.toManyOf(users).id,
+        const extUsersArr = [opts, undefined].map(opts => extend(users, ({ own, link }) => ({
+            rank: link(own.id).toOneOf(ranks, it => it.userId),
+            elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id),
+            goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId),
+            loveInterests: link(own.loveInterestIds).toManyOf(users, it => it.id),
+            parents: link(own.parentIds).toManyOf(users, it => it.id),
         }), opts))
         t.assert(isEqual(extUsersArr[0], extUsersArr[1]))
         const [extUsers] = extUsersArr
@@ -198,12 +257,12 @@ const getData = () => {
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrappedArr = [opts, undefined].map(opts => extendUnwrapped(users, own => ({
-            rank: own.id.toOneOf(ranks).userId,
-            elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
-            goldSigns: own.id.toManyOf(goldSigns).userId,
-            loveInterests: own.loveInterestIds.toManyOf(users).id,
-            parents: own.parentIds.toManyOf(users).id,
+        const extUsersUnwrappedArr = [opts, undefined].map(opts => extendUnwrapped(users, ({ own, link }) => ({
+            rank: link(own.id).toOneOf(ranks, it => it.userId),
+            elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id),
+            goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId),
+            loveInterests: link(own.loveInterestIds).toManyOf(users, it => it.id),
+            parents: link(own.parentIds).toManyOf(users, it => it.id),
         }), opts))
         t.assert(isEqual(extUsersUnwrappedArr[0], extUsersUnwrappedArr[1]))
         const [extUsersUnwrapped] = extUsersUnwrappedArr

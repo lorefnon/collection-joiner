@@ -52,13 +52,13 @@ To derive a collection, where each user has been associated with their rank (1:1
 ```ts
 import { extend } from "@lorefnon/collection-joiner";
 
-extend(users, own => ({
+extend(users, ({ link, own }) => ({
     // Populate rank by associating id of user to userId of ranks
-    rank: own.id.toOneOf(ranks).userId,
-    // Populate elderSibling by associating elderSiblingId of user to userId of ranks
-    elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
+    rank: link(own.id).toOneOf(ranks, rank => rank.userId),
+    // Populate elderSibling by associating elderSiblingId of user to id of user
+    elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, user => user.id),
     // Populate goldSigns by associating id of user to userId of goldSigns
-    goldSigns: own.id.toManyOf(goldSigns).userId
+    goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
 }))
 ```
 
@@ -153,9 +153,9 @@ You can avoid this wrapper by using `extendUnwrapped` function:
 import { extendUnwrapped } from "@lorefnon/collection-joiner";
 
 extendUnwrapped(users, own => ({
-      rank: own.id.toOneOf(ranks).userId,
-      elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
-      goldSigns: own.id.toManyOf(goldSigns).userId
+      rank: link(own.id).toOneOf(ranks, r => r.userId),
+      elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, u => u.id),
+      goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
 }))
 ```
 
@@ -221,14 +221,14 @@ Which returns:
 
 By default, extend will leave the collection provided as input as is, and return a new collection. However, you can pass `mutate: true` option to update the collection in place. This may be useful if you are dealing with reactive collections (eg. vue) or building object graphs through multiple invocations of `extend`
 
-```
-const extendedUsers = extend(users, own => ({
+```ts
+const extendedUsers = extend(users, ({ link, own }) => ({
     // Populate rank by associating id of user to userId of ranks
-    rank: own.id.toOneOf(ranks).userId,
+    rank: link(own.id).toOneOf(ranks, r => r.userId),
     // Populate elderSibling by associating elderSiblingId of user to userId of ranks
-    elderSibling: own.elderSiblingId.toOneOrNoneOf(users).id,
+    elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, u => u.id),
     // Populate goldSigns by associating id of user to userId of goldSigns
-    goldSigns: own.id.toManyOf(goldSigns).userId
+    goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
 }), {
     mutate: true
 })
