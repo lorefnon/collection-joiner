@@ -1,10 +1,15 @@
 # collection-joiner
 
-A simple type-safe utility to combine multiple collections using an intuitive proxy-based association API.
+When developing APIs or writing integration solutions, we often fetch data from multiple sources and combine them together. 
+This requires quite a bit of boilerplate even if you use utility libraries like lodash.
 
-You may find this API to be reminiscent of association APIs found in ORMs. However, collection-joiner is completely agnostic about how these collections are obtained - so you could for example, fetch a list of users from a database, a list of departments from another service, a list of roles from a key value store and merge them into a single hierarchy when constructing a response.
+This library aims to be provide a simple type-safe utility that makes the task of combining multiple collections simpler using an intuitive association API.
 
-## Usage
+You may find this API to be reminiscent of association APIs found in ORMs. However, collection-joiner is completely agnostic about 
+how these collections are obtained - so you could for example, fetch a list of users from a database, 
+a list of departments from another service, a list of roles from a key value store and merge them into a single hierarchy when constructing a response.
+
+## Usage/Examples
 
 Let's say we have following collections:
 
@@ -47,7 +52,7 @@ const ranks = [{
 }];
 ```
 
-To derive a collection, where each user has been associated with their rank (1:1 relation), elder sibling (1:0/1 relation) and goldsigns (1:N relation), we can do:
+To create a merged collection, where each user has been associated with their rank (1:1 relation), elder sibling (1:0/1 relation) and goldsigns (1:N relation), we can do:
 
 ```ts
 import { extend } from "@lorefnon/collection-joiner";
@@ -147,15 +152,15 @@ This will return following structure:
 
 By default associated references are wrapped in `{ value: associatedOne }` and `{ values: associatedMany }` wrappers, to make it explicit to consumers whether certain association is missing or was not fetched.
 
-You can avoid this wrapper by using `extendUnwrapped` function:
+You can avoid this wrapper by using `.unwrap()`:
 
 ```ts
-import { extendUnwrapped } from "@lorefnon/collection-joiner";
+import { extend } from "@lorefnon/collection-joiner";
 
-extendUnwrapped(users, own => ({
-      rank: link(own.id).toOneOf(ranks, r => r.userId),
-      elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, u => u.id),
-      goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
+extend(users, ({ link, own }) => ({
+      rank: link(own.id).toOneOf(ranks, r => r.userId).unwrap(),
+      elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, u => u.id).unwrap(),
+      goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId).unwrap()
 }))
 ```
 
@@ -217,6 +222,8 @@ Which returns:
     ]
 ```
 
+We don't really recommend using this, until you need to conform to a type that you don't control.
+
 ### Extend mutating original collection:
 
 By default, extend will leave the collection provided as input as is, and return a new collection. However, you can pass `mutate: true` option to update the collection in place. This may be useful if you are dealing with reactive collections (eg. vue) or building object graphs through multiple invocations of `extend`
@@ -229,17 +236,30 @@ const extendedUsers = extend(users, ({ link, own }) => ({
     elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, u => u.id),
     // Populate goldSigns by associating id of user to userId of goldSigns
     goldSigns: link(own.id).toManyOf(goldSigns, gs => gs.userId)
-}), {
-    mutate: true
-})
+}), { mutate: true })
 
 extendedUsers === users // true
+```
+
+### Fetching collections
+
+While data fetching is not the primary goal of this utility, for convenience we provide a `fetchAll` utility which provides a simple but type-safe solution for conditionally fetching multiple collections in parallel.
+
+```ts
+const res = await fetchAll({
+  users: {
+    fetch: async () => { /* Fetch users */ },
+    if: () => req.params.enrichments.users // Condition that determines if collection needs to be fetched
+  },
+  departments: {
+    fetch: async () => { /* Fetch departments */ },
+    if: () => req.params.enrichments.departments
+  }
+});
+
+// Now we can use extend to combine the different members of res into a single hierarchy
 ```
 
 # License
 
 MIT
-
-# History
-
-This project was developed as part of `TS Workshop: Power of Mapped Types` organized by OptimalWeb group in Hyderabad, Telangana.

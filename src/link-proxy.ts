@@ -13,34 +13,39 @@ interface GetItemKey<TSource extends {}, TKey extends keyof TSource> {
     (proxy: ItemKeysProxy<TSource>): ItemKeyRef<TSource, TKey>
 }
 
-export interface LinkProxy<TSource extends {}> {
+export interface LinkProxy<TSource extends {}, TWrapped extends boolean> {
     toOneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
         target: TTarget[],
         getTargetKey: GetItemKey<TTarget, TTargetKey>
-    ): OneOfAssocLink<TSource, TTarget, false, TTarget>
+    ): OneOfAssocLink<TSource, TTarget, false, TWrapped, TTarget>
+
     toOneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
         target: MaybeN<TTarget[]>,
         getTargetKey: GetItemKey<TTarget, TTargetKey>
-    ): OneOfAssocLink<TSource, TTarget, true, TTarget>
+    ): OneOfAssocLink<TSource, TTarget, true, TWrapped, TTarget>
+
     toOneOrNoneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
         target: TTarget[],
         getTargetKey: GetItemKey<TTarget, TTargetKey>
-    ): OneOrNoneOfAssocLink<TSource, TTarget, false, MaybeN<TTarget>>
+    ): OneOrNoneOfAssocLink<TSource, TTarget, false, TWrapped, MaybeN<TTarget>>
+
     toOneOrNoneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
         target: MaybeN<TTarget[]>,
         getTargetKey: GetItemKey<TTarget, TTargetKey>
-    ): OneOrNoneOfAssocLink<TSource, TTarget, true, MaybeN<TTarget>>
+    ): OneOrNoneOfAssocLink<TSource, TTarget, true, TWrapped, MaybeN<TTarget>>
+
     toManyOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
         target: TTarget[],
         getTargetKey: GetItemKey<TTarget, TTargetKey>
-    ): ManyOfAssocLink<TSource, TTarget, false, TTarget[]>
+    ): ManyOfAssocLink<TSource, TTarget, false, TWrapped, TTarget[]>
+
     toManyOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
         target: MaybeN<TTarget[]>,
         getTargetKey: GetItemKey<TTarget, TTargetKey>
-    ): ManyOfAssocLink<TSource, TTarget, true, TTarget[]>
+    ): ManyOfAssocLink<TSource, TTarget, true, TWrapped, TTarget[]>
 }
 
-export const getItemKeysProxy = <TSource extends {}> (source: TSource[]) =>
+export const getItemKeysProxy = <TSource extends {}>(source: TSource[]) =>
     new Proxy({}, {
         get(_, key) {
             return {
@@ -50,27 +55,42 @@ export const getItemKeysProxy = <TSource extends {}> (source: TSource[]) =>
         }
     }) as ItemKeysProxy<TSource>
 
-export const link = <TSrcColItem extends {}, TSrcKey extends keyof TSrcColItem> (
+export const link = <TSrcColItem extends {}, TSrcKey extends keyof TSrcColItem>(
     ref: ItemKeyRef<TSrcColItem, TSrcKey>
+) => createLinkProxy(ref, true) as LinkProxy<TSrcColItem, true>
+
+const createLinkProxy = (
+    ref: any,
+    wrap: boolean
 ) => {
     return new Proxy({}, {
         get(_, type) {
-            return <TTarget extends {}, TTargetKey extends keyof TTarget> (target: TTarget[], getTargetKey: GetItemKey<TTarget, TTargetKey>) => ({
+            return <TTarget extends {}, TTargetKey extends keyof TTarget>(
+                target: TTarget[],
+                getTargetKey: GetItemKey<TTarget, TTargetKey>
+            ) => ({
                 type,
                 target,
+                wrap,
                 targetKey: getTargetKey(getItemKeysProxy<TTarget>(target)).key,
                 sourceKey: ref.key,
                 toRes: (target: any) => target,
+                unwrap() {
+                    return {
+                        ...this,
+                        wrap: false
+                    }
+                },
                 thru(transform: (input: any) => any) {
                     const toRes = this.toRes
-                     return {
+                    return {
                         ...this,
                         toRes: (target: any) => transform(toRes(target))
                     }
                 }
             })
         }
-    }) as LinkProxy<TSrcColItem>
+    })
 }
 
 export interface ExtContext<TSource extends {}> {
@@ -78,7 +98,7 @@ export interface ExtContext<TSource extends {}> {
     link: typeof link
 }
 
-export const getExtContext = <TSource extends {}>(collection: TSource[]) => ({
+export const getExtContext = <TSource extends {}>(collection: TSource[]): ExtContext<TSource> => ({
     own: getItemKeysProxy(collection),
     link
 })
