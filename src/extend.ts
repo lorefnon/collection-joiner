@@ -13,7 +13,9 @@ export type WrapManyCond<T, TWrapped> =
 
 export type ExtResult<TSource, TAssocLinks extends AssocLinks<TSource>> =
     Omit<TSource, keyof TAssocLinks> & {
-        [K in keyof TAssocLinks]: TAssocLinks[K] extends OneOfAssocLink<TSource, infer _TTarget, infer TNilable, infer TWrapped, infer TRes>
+        [K in keyof TAssocLinks]: TAssocLinks[K] extends (src: TSource) => infer TRes 
+        ? TRes
+        : TAssocLinks[K] extends OneOfAssocLink<TSource, infer _TTarget, infer TNilable, infer TWrapped, infer TRes>
         ? NCond<WrapOneCond<TRes, TWrapped>, TNilable>
         : TAssocLinks[K] extends OneOrNoneOfAssocLink<TSource, infer _TTarget, infer TNilable, infer TWrapped, infer TRes>
         ? NCond<WrapOneCond<MaybeN<TRes>, TWrapped>, TNilable>
@@ -46,6 +48,10 @@ const _extend = <TSource extends {}, TAssocLinks extends AssocLinks<TSource>>(
         const resultItem = opts?.mutate ? item : { ...item };
         for (const key in mapping) {
             const assoc = assocLinks[key]
+            if (typeof assoc === "function") {
+                resultItem[key] = assoc(item)
+                continue;
+            }
             const sourceKeyVal = item[assoc.sourceKey]
             const targets: any[] = [];
             const sourceKeyVals = Array.isArray(sourceKeyVal)
@@ -92,7 +98,7 @@ const buildIndex = <
     for (const key of keys) {
         const assoc = assocLinks[key]
         const valueMapping = mapping[key] ??= new Map();
-        if (assoc.target) {
+        if (typeof assoc !== 'function' && assoc.target) {
             for (const targetItem of assoc.target) {
                 const targetKeyVal = (targetItem as any)[assoc.targetKey]
                 const targetKeyVals = Array.isArray(targetKeyVal)

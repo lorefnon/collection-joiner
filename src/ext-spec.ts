@@ -34,4 +34,4 @@ export type AssocLink<TSource, TTarget, TNilable extends boolean, TWrapped exten
     | OneOrNoneOfAssocLink<TSource, TTarget, TNilable, TWrapped, TRes>
     | ManyOfAssocLink<TSource, TTarget, TNilable, TWrapped, TRes>
 
-export type AssocLinks<TSource> = Record<string, Omit<AssocLink<TSource, any, boolean, boolean, any>, "thru" | "unwrap">>
+export type AssocLinks<TSource> = Record<string, Omit<AssocLink<TSource, any, boolean, boolean, any>, "thru" | "unwrap"> | ((source: TSource) => any)>
