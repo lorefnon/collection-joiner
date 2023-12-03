@@ -1,5 +1,5 @@
 import { ManyOfAssocLink, OneOfAssocLink, OneOrNoneOfAssocLink } from "./ext-spec.js"
-import { MaybeN } from "./utils.js"
+import { MaybeN, Thunk } from "./utils.js"
 
 interface ItemKeyRef<TColItem extends {}, TKey extends keyof TColItem> {
     key: TKey
@@ -79,6 +79,12 @@ const createLinkProxy = (
                     return {
                         ...this,
                         wrap: false
+                    }
+                },
+                if(cond: Thunk<boolean>) {
+                    return {
+                        ...this,
+                        cond
                     }
                 },
                 thru(transform: (input: any) => any) {

@@ -13,7 +13,7 @@ export type WrapManyCond<T, TWrapped> =
 
 export type ExtResult<TSource, TAssocLinks extends AssocLinks<TSource>> =
     Omit<TSource, keyof TAssocLinks> & {
-        [K in keyof TAssocLinks]: TAssocLinks[K] extends (src: TSource) => infer TRes 
+        [K in keyof TAssocLinks]: TAssocLinks[K] extends (src: TSource) => infer TRes
         ? TRes
         : TAssocLinks[K] extends OneOfAssocLink<TSource, infer _TTarget, infer TNilable, infer TWrapped, infer TRes>
         ? NCond<WrapOneCond<TRes, TWrapped>, TNilable>
@@ -44,12 +44,15 @@ const _extend = <TSource extends {}, TAssocLinks extends AssocLinks<TSource>>(
     const mapping = buildIndex<TSource, TAssocLinks>(assocLinks)
     const mutate = opts?.mutate ?? false
 
-    const mapped: any = collection[mutate ? 'forEach' : 'map']((item: any) => {
+    const extendItem = (item: any) => {
         const resultItem = opts?.mutate ? item : { ...item };
         for (const key in mapping) {
             const assoc = assocLinks[key]
             if (typeof assoc === "function") {
                 resultItem[key] = assoc(item)
+                continue;
+            }
+            if (assoc.cond && !assoc.cond()) {
                 continue;
             }
             const sourceKeyVal = item[assoc.sourceKey]
@@ -82,9 +85,14 @@ const _extend = <TSource extends {}, TAssocLinks extends AssocLinks<TSource>>(
             }
         }
         return resultItem;
-    })
+    }
 
-    return opts?.mutate ? collection : mapped
+    if (opts?.mutate) {
+        collection.forEach(extendItem);
+        return collection;
+    }
+
+    return collection.map(extendItem);
 }
 
 const buildIndex = <

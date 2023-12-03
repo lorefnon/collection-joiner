@@ -1,6 +1,7 @@
 import isEqual from 'lodash/isEqual.js';
 import test from "ava";
 import { MaybeN, extend, fetchAll } from "./index.js"
+import isUndefined from 'lodash/isUndefined.js';
 
 interface User {
     id: number;
@@ -293,4 +294,35 @@ test('fetchAll', async (t) => {
         }
     });
     t.snapshot(res)
+})
+
+test('conditional extend', async (t) => {
+    const data = getData()
+    const users: undefined | typeof data.users = data.users
+    const ranks: null | typeof data.ranks = data.ranks
+    const goldSigns: MaybeN<typeof data.goldSigns> = data.goldSigns
+
+    const linkRanks = true;
+    const linkSiblings = false;
+
+    const extUsers= extend(users, ({ own, link }) => ({
+        rank: link(own.id)
+            .toOneOf(ranks, it => it.userId)
+            .if(() => linkRanks),
+        elderSibling: link(own.elderSiblingId)
+            .toOneOrNoneOf(users, it => it.id)
+            .if(() => linkSiblings),
+        goldSigns: link(own.id)
+            .toManyOf(goldSigns, it => it.userId),
+        loveInterests: link(own.loveInterestIds)
+            .toManyOf(users, it => it.id),
+        parents: link(own.parentIds)
+            .toManyOf(users, it => it.id),
+    }));
+    
+    t.snapshot(extUsers)
+
+    t.assert(isUndefined(extUsers[0].elderSibling));
+    t.assert(extUsers[0].rank?.value?.rank === "Arch Lord");
+    t.assert(extUsers[0].goldSigns?.values[0].userId === extUsers[0].id);
 })
