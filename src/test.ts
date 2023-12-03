@@ -1,6 +1,6 @@
 import isEqual from 'lodash/isEqual.js';
 import test from "ava";
-import { MaybeN, extend, fetchAll } from "./index.js"
+import { MaybeN, extend, extendAsync, fetchAll } from "./index.js"
 import isUndefined from 'lodash/isUndefined.js';
 
 interface User {
@@ -149,34 +149,52 @@ const getData = () => {
         t.assert((extUsersUnwrapped[0] === users[0]) === !!mutate)
     })
 
-    test(`extend with multiple${withMutationDesc}`, t => {
+    test(`extend with multiple${withMutationDesc}`, async t => {
         const { users, ranks, goldSigns } = getData()
-        const extUsersArr = [opts, undefined].map(opts => extend(users, ({ link, own }) => ({
+        const extUsersArr1 = [opts, undefined].map(opts => extend(users, ({ link, own }) => ({
             rank: link(own.id).toOneOf(ranks, it => it.userId),
             elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id),
             goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId),
             loveInterests: link(own.loveInterestIds).toManyOf(users, it => it.id),
             parents: link(own.parentIds).toManyOf(users, it => it.id),
         }), opts))
-        t.assert(isEqual(extUsersArr[0], extUsersArr[1]))
-        const [extUsers] = extUsersArr
-        t.snapshot(extUsersArr)
+        t.assert(isEqual(extUsersArr1[0], extUsersArr1[1]))
+        const [extUsers] = extUsersArr1
+        t.snapshot(extUsersArr1)
         t.assert(extUsers[0].goldSigns.values[0].userId === extUsers[0].id)
         t.assert((extUsers === users) === !!mutate)
         t.assert((extUsers[0] === users[0]) === !!mutate)
 
-        const extUsersUnwrappedArr = [opts, undefined].map(opts => extend(users, ({ link, own }) => ({
+        const extUsersArr2 = await Promise.all([opts, undefined].map(opts => extendAsync(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOf(() => ranks, it => it.userId),
+            elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id),
+            goldSigns: link(own.id).toManyOf(async () => goldSigns, it => it.userId),
+            loveInterests: link(own.loveInterestIds).toManyOf(Promise.resolve(users), it => it.id),
+            parents: link(own.parentIds).toManyOf(users, it => it.id),
+        }), opts)))
+        t.assert(isEqual(extUsersArr2, extUsersArr1))
+
+        const extUsersUnwrappedArr1 = [opts, undefined].map(opts => extend(users, ({ link, own }) => ({
             rank: link(own.id).toOneOf(ranks, it => it.userId).unwrap(),
             elderSibling: link(own.elderSiblingId).toOneOrNoneOf(users, it => it.id).unwrap(),
             goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId).unwrap(),
             loveInterests: link(own.loveInterestIds).toManyOf(users, it => it.id).unwrap(),
             parents: link(own.parentIds).toManyOf(users, it => it.id).unwrap(),
         }), opts))
-        t.assert(isEqual(extUsersUnwrappedArr[0], extUsersUnwrappedArr[1]))
-        const [extUsersUnwrapped] = extUsersUnwrappedArr
+        t.assert(isEqual(extUsersUnwrappedArr1[0], extUsersUnwrappedArr1[1]))
+        const [extUsersUnwrapped] = extUsersUnwrappedArr1
         t.snapshot(extUsersUnwrapped)
         t.assert((extUsersUnwrapped === users) === !!mutate)
         t.assert((extUsersUnwrapped[0] === users[0]) === !!mutate)
+
+        const extUsersUnwrappedArr2 = await Promise.all([opts, undefined].map(opts => extendAsync(users, ({ link, own }) => ({
+            rank: link(own.id).toOneOf(Promise.resolve(ranks), it => it.userId).unwrap(),
+            elderSibling: link(own.elderSiblingId).toOneOrNoneOf(() => users, it => it.id).unwrap(),
+            goldSigns: link(own.id).toManyOf(goldSigns, it => it.userId).unwrap(),
+            loveInterests: link(own.loveInterestIds).toManyOf(() => users, it => it.id).unwrap(),
+            parents: link(own.parentIds).toManyOf(async () => users, it => it.id).unwrap(),
+        }), opts)))
+        t.assert(isEqual(extUsersUnwrappedArr2, extUsersUnwrappedArr1))
     })
 
     test(`extend with transformations${withMutationDesc}`, t => {
@@ -305,7 +323,7 @@ test('conditional extend', async (t) => {
     const linkRanks = true;
     const linkSiblings = false;
 
-    const extUsers= extend(users, ({ own, link }) => ({
+    const extUsers = extend(users, ({ own, link }) => ({
         rank: link(own.id)
             .toOneOf(ranks, it => it.userId)
             .if(() => linkRanks),
@@ -319,10 +337,52 @@ test('conditional extend', async (t) => {
         parents: link(own.parentIds)
             .toManyOf(users, it => it.id),
     }));
-    
+
     t.snapshot(extUsers)
 
     t.assert(isUndefined(extUsers[0].elderSibling));
     t.assert(extUsers[0].rank?.value?.rank === "Arch Lord");
     t.assert(extUsers[0].goldSigns?.values[0].userId === extUsers[0].id);
 })
+
+test('extendAsync with fetch all', async (t) => {
+    const data = getData()
+    const users: undefined | typeof data.users = data.users
+    const ranks: null | typeof data.ranks = data.ranks
+    const goldSigns: MaybeN<typeof data.goldSigns> = data.goldSigns
+
+    const linkRanks = true;
+    const linkSiblings = false;
+
+    const extUsers = await extendAsync(users, async ({ own, link }) => {
+        const rels = await fetchAll({
+            ranks: {
+                fetch: async () => ranks,
+                if: () => true
+            },
+            users: async () => users,
+        })
+        return {
+            rank: link(own.id)
+                .toOneOf(rels.ranks ?? [], it => it.userId)
+                .if(() => linkRanks),
+            elderSibling: link(own.elderSiblingId)
+                .toOneOrNoneOf(rels.users, it => it.id)
+                .if(() => linkSiblings),
+            goldSigns: link(own.id)
+                .toManyOf(async () => goldSigns, it => it.userId),
+            loveInterests: link(own.loveInterestIds)
+                .toManyOf(rels.users, it => it.id),
+            parents: link(own.parentIds)
+                .toManyOf(rels.users, it => it.id),
+        }
+    });
+
+    t.snapshot(extUsers)
+
+    t.assert(isUndefined(extUsers[0].elderSibling));
+    t.assert(extUsers[0].rank?.value?.rank === "Arch Lord");
+    t.assert(extUsers[0].goldSigns?.values[0].userId === extUsers[0].id);
+})
+
+

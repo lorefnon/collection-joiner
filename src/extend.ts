@@ -1,4 +1,4 @@
-import { AssocLinks, OneOfAssocLink, OneOrNoneOfAssocLink, ManyOfAssocLink, NCond } from "./ext-spec.js"
+import { AssocLinks, OneOfAssocLink, OneOrNoneOfAssocLink, ManyOfAssocLink, NCond, AsyncAssocLinks, OneOfAsyncAssocLink, OneOrNoneOfAsyncAssocLink, ManyOfAsyncAssocLink } from "./ext-spec.js"
 import { ExtContext, getExtContext } from "./link-proxy.js"
 import { MaybeN } from "./utils.js";
 
@@ -41,70 +41,76 @@ const _extend = <TSource extends {}, TAssocLinks extends AssocLinks<TSource>>(
     opts?: ExtendOpts
 ) => {
     const assocLinks = receiver(getExtContext<TSource>(collection));
-    const mapping = buildIndex<TSource, TAssocLinks>(assocLinks)
-    const mutate = opts?.mutate ?? false
-
-    const extendItem = (item: any) => {
-        const resultItem = opts?.mutate ? item : { ...item };
-        for (const key in mapping) {
-            const assoc = assocLinks[key]
-            if (typeof assoc === "function") {
-                resultItem[key] = assoc(item)
-                continue;
-            }
-            if (assoc.cond && !assoc.cond()) {
-                continue;
-            }
-            const sourceKeyVal = item[assoc.sourceKey]
-            const targets: any[] = [];
-            const sourceKeyVals = Array.isArray(sourceKeyVal)
-                ? sourceKeyVal
-                : [sourceKeyVal]
-            for (const skVal of sourceKeyVals) {
-                if (skVal == null) continue;
-                const target = mapping[key]?.get(skVal);
-                if (target == null) continue;
-                targets.push(...target)
-            }
-            if (assoc.type === "toOneOrNoneOf" || assoc.type === "toOneOf") {
-                if (targets.length > 1) {
-                    throw new Error(`Expected atmost one target for association ${String(key)} but found ${targets.length}`)
-                }
-                if (assoc.type === "toOneOf" && targets.length === 0) {
-                    throw new Error(`Expected atleast one target for association ${String(key)} but found ${targets.length}`)
-                }
-                if (assoc.wrap)
-                    resultItem[key] = { value: assoc.toRes(targets[0]) }
-                else
-                    resultItem[key] = assoc.toRes(targets[0])
-            } else {
-                if (assoc.wrap)
-                    resultItem[key] = { values: assoc.toRes(targets) }
-                else
-                    resultItem[key] = assoc.toRes(targets)
-            }
-        }
-        return resultItem;
-    }
+    const mapping = buildIndex<TSource, TAssocLinks>(assocLinks);
+    const _extendItem = extendItem<TSource, TAssocLinks>(assocLinks, mapping, opts);
 
     if (opts?.mutate) {
-        collection.forEach(extendItem);
+        collection.forEach(_extendItem);
         return collection;
     }
+    return collection.map(_extendItem);
+}
 
-    return collection.map(extendItem);
+export const extendItem = <TSource extends {}, TAssocLinks extends AssocLinks<TSource> | AsyncAssocLinks<TSource>>(
+    assocLinks: TAssocLinks,
+    mapping: AssocIdx<any>,
+    opts: MaybeN<ExtendOpts>
+) => (item: any) => {
+    const resultItem = opts?.mutate ? item : { ...item };
+    for (const key in mapping) {
+        const assoc = assocLinks[key]
+        if (typeof assoc === "function") {
+            resultItem[key] = assoc(item)
+            continue;
+        }
+        const sourceKeyVal = item[assoc.sourceKey]
+        const targets: any[] = [];
+        const sourceKeyVals = Array.isArray(sourceKeyVal)
+            ? sourceKeyVal
+            : [sourceKeyVal]
+        for (const skVal of sourceKeyVals) {
+            if (skVal == null) continue;
+            const target = mapping[key]?.get(skVal);
+            if (target == null) continue;
+            targets.push(...target)
+        }
+        if (assoc.type === "toOneOrNoneOf" || assoc.type === "toOneOf") {
+            if (targets.length > 1) {
+                throw new Error(`Expected atmost one target for association ${String(key)} but found ${targets.length}`)
+            }
+            if (assoc.type === "toOneOf" && targets.length === 0) {
+                throw new Error(`Expected atleast one target for association ${String(key)} but found ${targets.length}`)
+            }
+            if (assoc.wrap)
+                resultItem[key] = { value: assoc.toRes(targets[0]) }
+            else
+                resultItem[key] = assoc.toRes(targets[0])
+        } else {
+            if (assoc.wrap)
+                resultItem[key] = { values: assoc.toRes(targets) }
+            else
+                resultItem[key] = assoc.toRes(targets)
+        }
+    }
+    return resultItem;
+
+}
+
+export type AssocIdx<TAssocLinks extends {}> = {
+    [K in keyof TAssocLinks]?: Map<any, any[]>
 }
 
 const buildIndex = <
     TSource extends {},
     TAssocLinks extends AssocLinks<TSource>
 >(assocLinks: TAssocLinks) => {
-    const mapping: {
-        [K in keyof TAssocLinks]?: Map<any, any[]>
-    } = {}
+    const mapping: AssocIdx<TAssocLinks> = {}
     const keys = Object.keys(assocLinks) as (keyof TAssocLinks)[]
     for (const key of keys) {
         const assoc = assocLinks[key]
+        if (typeof assoc !== 'function' && assoc.cond && !assoc.cond()) {
+            continue;
+        }
         const valueMapping = mapping[key] ??= new Map();
         if (typeof assoc !== 'function' && assoc.target) {
             for (const targetItem of assoc.target) {

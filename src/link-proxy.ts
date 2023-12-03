@@ -1,5 +1,5 @@
-import { ManyOfAssocLink, OneOfAssocLink, OneOrNoneOfAssocLink } from "./ext-spec.js"
-import { MaybeN, Thunk } from "./utils.js"
+import { ManyOfAssocLink, ManyOfAsyncAssocLink, OneOfAssocLink, OneOfAsyncAssocLink, OneOrNoneOfAssocLink, OneOrNoneOfAsyncAssocLink } from "./ext-spec.js"
+import { MaybeN, MaybeP, MaybeT, Thunk } from "./utils.js"
 
 interface ItemKeyRef<TColItem extends {}, TKey extends keyof TColItem> {
     key: TKey
@@ -45,6 +45,39 @@ export interface LinkProxy<TSource extends {}, TWrapped extends boolean> {
     ): ManyOfAssocLink<TSource, TTarget, true, TWrapped, TTarget[]>
 }
 
+export interface AsyncLinkProxy<TSource extends {}, TWrapped extends boolean> {
+    toOneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
+        target: MaybeT<MaybeP<TTarget[]>>,
+        getTargetKey: GetItemKey<TTarget, TTargetKey>
+    ): OneOfAsyncAssocLink<TSource, TTarget, false, TWrapped, TTarget>
+
+    toOneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
+        target: MaybeT<MaybeP<TTarget[]>>,
+        getTargetKey: GetItemKey<TTarget, TTargetKey>
+    ): OneOfAsyncAssocLink<TSource, TTarget, true, TWrapped, TTarget>
+
+    toOneOrNoneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
+        target: MaybeT<MaybeP<TTarget[]>>,
+        getTargetKey: GetItemKey<TTarget, TTargetKey>
+    ): OneOrNoneOfAsyncAssocLink<TSource, TTarget, false, TWrapped, MaybeN<TTarget>>
+
+    toOneOrNoneOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
+        target: MaybeT<MaybeP<TTarget[]>>,
+        getTargetKey: GetItemKey<TTarget, TTargetKey>
+    ): OneOrNoneOfAsyncAssocLink<TSource, TTarget, true, TWrapped, MaybeN<TTarget>>
+
+    toManyOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
+        target: MaybeT<MaybeP<TTarget[]>>,
+        getTargetKey: GetItemKey<TTarget, TTargetKey>
+    ): ManyOfAsyncAssocLink<TSource, TTarget, false, TWrapped, TTarget[]>
+
+    toManyOf<TTarget extends {}, TTargetKey extends keyof TTarget>(
+        target: MaybeT<MaybeP<TTarget[]>>,
+        getTargetKey: GetItemKey<TTarget, TTargetKey>
+    ): ManyOfAsyncAssocLink<TSource, TTarget, true, TWrapped, TTarget[]>
+}
+
+
 export const getItemKeysProxy = <TSource extends {}>(source: TSource[]) =>
     new Proxy({}, {
         get(_, key) {
@@ -58,6 +91,10 @@ export const getItemKeysProxy = <TSource extends {}>(source: TSource[]) =>
 export const link = <TSrcColItem extends {}, TSrcKey extends keyof TSrcColItem>(
     ref: ItemKeyRef<TSrcColItem, TSrcKey>
 ) => createLinkProxy(ref, true) as LinkProxy<TSrcColItem, true>
+
+export const asyncLink = <TSrcColItem extends {}, TSrcKey extends keyof TSrcColItem>(
+    ref: ItemKeyRef<TSrcColItem, TSrcKey>
+) => createLinkProxy(ref, true) as AsyncLinkProxy<TSrcColItem, true>
 
 const createLinkProxy = (
     ref: any,
@@ -108,3 +145,14 @@ export const getExtContext = <TSource extends {}>(collection: TSource[]): ExtCon
     own: getItemKeysProxy(collection),
     link
 })
+
+export interface AsyncExtContext<TSource extends {}> {
+    own: ItemKeysProxy<TSource>
+    link: typeof asyncLink 
+}
+
+export const getAsyncExtContext = <TSource extends {}>(collection: TSource[]): AsyncExtContext<TSource> => ({
+    own: getItemKeysProxy(collection),
+    link: asyncLink
+})
+
