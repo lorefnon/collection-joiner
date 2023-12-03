@@ -1,8 +1,8 @@
 import { NCond, AsyncAssocLinks, OneOfAsyncAssocLink, OneOrNoneOfAsyncAssocLink, ManyOfAsyncAssocLink } from "./ext-spec.js"
 import { ExtendOpts, WrapManyCond, WrapOneCond, extendItem } from "./extend.js";
-import { resolveThunk } from "./fetch.js";
+import isFunction from "lodash/isFunction.js";
 import { AsyncExtContext, getAsyncExtContext } from "./link-proxy.js"
-import { MaybeN, MaybeP, MaybeT } from "./utils.js";
+import { MaybeN, MaybeP } from "./utils.js";
 
 export type AsyncExtResult<TSource, TAssocLinks extends AsyncAssocLinks<TSource>> =
     Omit<TSource, keyof TAssocLinks> & {
@@ -55,6 +55,19 @@ const buildIndex = async <
         [K in keyof TAssocLinks]?: Map<any, any[]>
     } = {}
     const keys = Object.keys(assocLinks) as (keyof TAssocLinks)[]
+
+    // If same thunk is used multiple times, we should not refetch
+    const targetMapping = new WeakMap();
+    const resolveTarget = (target: any) => {
+        if (isFunction(target)) {
+            const cachedTarget = targetMapping.get(target);
+            if (cachedTarget) return cachedTarget;
+            const resolved = target();
+            return resolved;
+        }
+        return target;
+    }
+
     await Promise.all(keys.map(async (key) => {
         const assoc = assocLinks[key]
         if (typeof assoc !== 'function' && assoc.cond && !assoc.cond()) {
@@ -62,7 +75,7 @@ const buildIndex = async <
         }
         const valueMapping = mapping[key] ??= new Map();
         if (typeof assoc !== 'function' && assoc.target) {
-            const target = await resolveThunk(assoc.target);
+            const target = await resolveTarget(assoc.target);
             if (!target) return;
             for (const targetItem of target) {
                 const targetKeyVal = (targetItem as any)[assoc.targetKey]
