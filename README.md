@@ -243,22 +243,111 @@ extendedUsers === users // true
 
 ### Fetching collections
 
-While data fetching is not the primary goal of this utility, for convenience we provide a `fetchAll` utility which provides a simple but type-safe solution for conditionally fetching multiple collections in parallel.
+While data fetching is not the primary goal of this utility, for convenience we support a `extendAsync` utility as well which can accept async functions or thunks which resolve to collections.
 
 ```ts
-const res = await fetchAll({
-  users: {
-    fetch: async () => { /* Fetch users */ },
-    if: () => req.params.enrichments.users // Condition that determines if collection needs to be fetched
-  },
-  departments: {
-    fetch: async () => { /* Fetch departments */ },
-    if: () => req.params.enrichments.departments
-  }
-});
+import { extendAsync } from "@lorefnon/collection-joiner";
 
-// Now we can use extend to combine the different members of res into a single hierarchy
+const fetchRanks = async () => {
+    // Fetch ranks from database...
+    return [{ userId: 1, rank: "Arch Lord" }];
+};
+
+await extendAsync(users, ({ link, own }) => ({
+    // Populate rank by associating id of user to userId of ranks
+    rank: link(own.id)
+      // Async function that resolves to collection is acceptable
+      .toOneOf(fetchRanks, rank => rank.userId)
+      .if(() => /* If client is asking for rank */ true),
+
+    // Populate elderSibling by associating elderSiblingId of user to id of user
+    elderSibling: link(own.elderSiblingId)
+      // If the operation has already started, promise is also acceptable
+      .toOneOrNoneOf(Promise.resolve(users), user => user.id),
+}))
 ```
+
+If passing thunks defined inline, we need to exercise caution if multiple relations are using the same data source.
+
+For example: 
+
+```ts
+const extUsers = await extendAsync(users, async ({ own, link }) => ({
+  elderSibling: link(own.elderSiblingId)
+      .toOneOrNoneOf(
+        async () => (await fetch("/family/1/users")).json(), 
+        it => it.id
+      )
+      .if(() => linkSiblings),
+  parents: link(own.parentIds)
+      .toManyOf(
+        async () => (await fetch("/family/1/users")).json(), 
+        it => it.id
+      ),
+}));
+```
+
+The users will be fetched twice, because even though we are making the same request for multiple associations, the library
+the does not have a good way to infer that.
+
+Instead we can extract out the fetcher and reuse that: 
+
+```ts
+const fetchUsers = async () => (await fetch("/family/1/users")).json();
+
+const extUsers = await extendAsync(users, async ({ own, link }) => ({
+  elderSibling: link(own.elderSiblingId)
+      .toOneOrNoneOf(
+        fetchUsers, 
+        it => it.id
+      )
+      .if(() => linkSiblings),
+  parents: link(own.parentIds)
+      .toManyOf(
+        fetchUsers,
+        it => it.id
+      ),
+}));
+```
+
+Now, users will be fetched only once because the library is smart enough to detect that identity of the fetcher functions is same.
+
+A lower level `fetchAll` utility is also available, when it is desirable to have fetching and merging as separate steps. This can be
+useful for example if in same request multiple collections are available, which we then want to merge together.
+
+```ts
+const extUsers = await extendAsync(users, async ({ own, link }) => {
+    // Fetch users and ranks in parallel
+    const rels = await fetchAll({
+        ranks: {
+            fetch: async () => ranks,
+            if: () => true
+        },
+        users: async () => users,
+    })
+
+    // Results are available in an object which mirrors the shape of request
+    // rels: { ranks?: Rank[], users: User[] }
+
+    // Now we can use the fetched collections for merging
+    return {
+        rank: link(own.id)
+            .toOneOf(rels.ranks ?? [], it => it.userId)
+            .if(() => linkRanks),
+        elderSibling: link(own.elderSiblingId)
+            .toOneOrNoneOf(rels.users, it => it.id)
+            .if(() => linkSiblings),
+        goldSigns: link(own.id)
+            .toManyOf(async () => goldSigns, it => it.userId),
+        loveInterests: link(own.loveInterestIds)
+            .toManyOf(rels.users, it => it.id),
+        parents: link(own.parentIds)
+            .toManyOf(rels.users, it => it.id),
+    }
+});
+```
+
+Of course, `fetchAll` is a generic utility. We can use it independent of `extend`/`extendAsync` too.
 
 # License
 
