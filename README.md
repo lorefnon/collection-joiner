@@ -312,6 +312,8 @@ const extUsers = await extendAsync(users, async ({ own, link }) => ({
 
 Now, users will be fetched only once because the library is smart enough to detect that identity of the fetcher functions is same.
 
+Note that this duplication support is not a substitute for caching. This library does not keep track of results, separate extendAsync calls will perform separate requests.
+
 A lower level `fetchAll` utility is also available, when it is desirable to have fetching and merging as separate steps. This can be
 useful for example if in same request multiple collections are available, which we then want to merge together.
 
@@ -320,9 +322,17 @@ const extUsers = await extendAsync(users, async ({ own, link }) => {
     // Fetch users and ranks in parallel
     const rels = await fetchAll({
         ranks: {
+            // fetch ranks 
             fetch: async () => ranks,
+            // A guard can be passed to indicate if the collection needs to be fetched
+            //
+            // This is convenient for example, if based on user provided parameters we
+            // need to decide if ranks are needed or not
             if: () => true
         },
+
+        // When guards are not needed, it is sufficient to just pass
+        // a fetcher function
         users: async () => users,
     })
 
