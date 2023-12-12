@@ -2,7 +2,7 @@ import isFunction from "lodash/isFunction.js";
 import { MaybeN, MaybeP, MaybeT, Thunk } from "./utils.js"
 
 export interface FetchSpec<T> {
-    fetch: () => Promise<T[]>
+    fetch: () => Promise<T>
     if?: MaybeT<MaybeP<MaybeN<boolean>>>
 }
 
@@ -13,8 +13,8 @@ export interface MultiFetchSpecBase {
 export type MultiFetchRes<TSpec extends {}> = {
     [K in keyof TSpec]: TSpec[K] extends FetchSpec<infer T>
         ? TSpec[K]["if"] extends Function
-            ? T[] | undefined
-            : T[]
+            ? T | undefined
+            : T
         : TSpec[K] extends Thunk<infer T>
             ? Awaited<T>
             : never

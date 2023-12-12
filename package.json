@@ -25,7 +25,7 @@
       "compile": "tsc"
     }
   },
-  "author": "Lorefnon <lorefnon@tutanota.com>",
+  "author": "Lorefnon <lorefnon@tuta.com>",
   "license": "MIT",
   "devDependencies": {
     "@ava/typescript": "^4.1.0",
