@@ -2,7 +2,8 @@ import { NCond, AsyncAssocLinks, OneOfAsyncAssocLink, OneOrNoneOfAsyncAssocLink,
 import { ExtendOpts, WrapManyCond, WrapOneCond, extendItem } from "./extend.js";
 import isFunction from "lodash/isFunction.js";
 import { AsyncExtContext, getAsyncExtContext } from "./link-proxy.js"
-import { MaybeN, MaybeP } from "./utils.js";
+import { MaybeN, MaybeP, MaybeT } from "./utils.js";
+import { resolveThunk } from "./fetch.js";
 
 export type AsyncExtResult<TSource, TAssocLinks extends AsyncAssocLinks<TSource>> =
     Omit<TSource, keyof TAssocLinks> & {
@@ -19,17 +20,18 @@ export type AsyncExtResult<TSource, TAssocLinks extends AsyncAssocLinks<TSource>
 
 
 export const extendAsync = async <TSource extends {}, TAssocLinks extends AsyncAssocLinks<TSource>>(
-    collection: TSource[],
+    source: MaybeT<MaybeP<TSource[]>>,
     receiver: (ctx: AsyncExtContext<TSource>) => MaybeP<TAssocLinks>,
     opts?: ExtendOpts
 ): Promise<AsyncExtResult<TSource, TAssocLinks>[]> =>
-    _extend(collection, receiver, opts)
+    _extend(source, receiver, opts)
 
 const _extend = async <TSource extends {}, TAssocLinks extends AsyncAssocLinks<TSource>>(
-    collection: TSource[],
+    source: MaybeT<MaybeP<TSource[]>>,
     receiver: (ctx: AsyncExtContext<TSource>) => MaybeP<TAssocLinks>,
     opts?: ExtendOpts
 ) => {
+    const collection = await resolveThunk(source);
     const assocLinks = await receiver(getAsyncExtContext<TSource>(collection));
     const mapping = await buildIndex<TSource, TAssocLinks>(assocLinks)
 

@@ -354,29 +354,31 @@ test('extendAsync with fetch all', async (t) => {
     const linkRanks = true;
     const linkSiblings = false;
 
-    const extUsers = await extendAsync(users, async ({ own, link }) => {
-        const rels = await fetchAll({
-            ranks: {
-                fetch: async () => ranks,
-                if: () => true
-            },
-            users: async () => users,
-        })
-        return {
-            rank: link(own.id)
-                .toOneOf(rels.ranks ?? [], it => it.userId)
-                .if(() => linkRanks),
-            elderSibling: link(own.elderSiblingId)
-                .toOneOrNoneOf(rels.users, it => it.id)
-                .if(() => linkSiblings),
-            goldSigns: link(own.id)
-                .toManyOf(async () => goldSigns, it => it.userId),
-            loveInterests: link(own.loveInterestIds)
-                .toManyOf(rels.users, it => it.id),
-            parents: link(own.parentIds)
-                .toManyOf(rels.users, it => it.id),
-        }
-    });
+    const extUsers = await extendAsync(
+        async () => users,
+        async ({ own, link }) => {
+            const rels = await fetchAll({
+                ranks: {
+                    fetch: async () => ranks,
+                    if: () => true
+                },
+                users: async () => users,
+            })
+            return {
+                rank: link(own.id)
+                    .toOneOf(rels.ranks ?? [], it => it.userId)
+                    .if(() => linkRanks),
+                elderSibling: link(own.elderSiblingId)
+                    .toOneOrNoneOf(rels.users, it => it.id)
+                    .if(() => linkSiblings),
+                goldSigns: link(own.id)
+                    .toManyOf(async () => goldSigns, it => it.userId),
+                loveInterests: link(own.loveInterestIds)
+                    .toManyOf(rels.users, it => it.id),
+                parents: link(own.parentIds)
+                    .toManyOf(rels.users, it => it.id),
+            }
+        });
 
     t.snapshot(extUsers)
 
