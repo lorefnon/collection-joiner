@@ -147,11 +147,13 @@ export const getExtContext = <TSource extends {}>(collection: TSource[]): ExtCon
 })
 
 export interface AsyncExtContext<TSource extends {}> {
+    collection: TSource[]
     own: ItemKeysProxy<TSource>
     link: typeof asyncLink 
 }
 
 export const getAsyncExtContext = <TSource extends {}>(collection: TSource[]): AsyncExtContext<TSource> => ({
+    collection,
     own: getItemKeysProxy(collection),
     link: asyncLink
 })
