@@ -7,6 +7,9 @@
   "files": [
     "dist"
   ],
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "types": "./dist/index.d.ts",
   "scripts": {
     "prepublishOnly": "run-p test build",
