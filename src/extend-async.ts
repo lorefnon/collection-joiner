@@ -4,6 +4,7 @@ import isFunction from "lodash/isFunction.js";
 import { AsyncExtContext, getAsyncExtContext } from "./link-proxy.js"
 import { MaybeN, MaybeP, MaybeT } from "./utils.js";
 import { resolveThunk } from "./fetch.js";
+import { getLogger } from "./logger.js";
 
 export type AsyncExtResult<TSource, TAssocLinks extends AsyncAssocLinks<TSource>> =
     Omit<TSource, keyof TAssocLinks> & {
@@ -72,27 +73,37 @@ const buildIndex = async <
 
     await Promise.all(keys.map(async (key) => {
         const assoc = assocLinks[key]
-        if (typeof assoc !== 'function' && assoc.cond && !assoc.cond()) {
-            return;
+        try {
+            if (typeof assoc !== 'function' && assoc.cond && !assoc.cond()) {
+                return;
+            }
+        } catch (e) {
+            getLogger().error('[collection-joiner] Error resolving precondition', e, { key });
+            throw e;
         }
         const valueMapping = mapping[key] ??= new Map();
-        if (typeof assoc !== 'function' && assoc.target) {
-            const target = await resolveTarget(assoc.target);
-            if (!target) return;
-            for (const targetItem of target) {
-                const targetKeyVal = (targetItem as any)[assoc.targetKey]
-                const targetKeyVals = Array.isArray(targetKeyVal)
-                    ? targetKeyVal
-                    : [targetKeyVal]
-                for (const tkVal of targetKeyVals) {
-                    if (tkVal == null) continue;
-                    const targetList = valueMapping.get(tkVal) ?? []
-                    targetList.push(targetItem)
-                    valueMapping.set(tkVal, targetList)
+        try {
+            if (typeof assoc !== 'function' && assoc.target) {
+                const target = await resolveTarget(assoc.target);
+                if (!target) return;
+                for (const targetItem of target) {
+                    const targetKeyVal = (targetItem as any)[assoc.targetKey]
+                    const targetKeyVals = Array.isArray(targetKeyVal)
+                        ? targetKeyVal
+                        : [targetKeyVal]
+                    for (const tkVal of targetKeyVals) {
+                        if (tkVal == null) continue;
+                        const targetList = valueMapping.get(tkVal) ?? []
+                        targetList.push(targetItem)
+                        valueMapping.set(tkVal, targetList)
+                    }
                 }
             }
+        } catch (e) {
+            getLogger().error('[collection-joiner] Error resolving/indexing target', e, { key });
+            throw e;
         }
-    }))
+    }));
     return mapping
 }
 
